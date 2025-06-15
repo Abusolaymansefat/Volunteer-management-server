@@ -34,11 +34,11 @@ async function run() {
     });
 
    app.get('/volunteer', async (req, res) => {
-  const posts = await volunteerCollection.find().toArray();
-  res.send(posts);
-});
+    const posts = await volunteerCollection.find().toArray();
+    res.send(posts);
+  });
 
-    app.get('/volunteer/sorted', async (req, res) => {
+  app.get('/volunteer/sorted', async (req, res) => {
   const posts = await volunteerCollection
     .find()
     .sort({ deadline: 1 })
