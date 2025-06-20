@@ -38,6 +38,11 @@ const verifytoken = (req, res, next) => {
   next();
 };
 
+const verifyFirebaseToken = (req, res, next)=> {
+  const token = req.header.accessToken;
+  console.log('fb token', token)
+}
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.sq4up6y.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 const client = new MongoClient(uri, {
@@ -73,17 +78,14 @@ async function run() {
       res.send({ success: true });
     });
 
+    // Volunteer APIs
     app.get("/volunteer", async (req, res) => {
       const result = await volunteerCollection.find().toArray();
       res.send(result);
     });
 
     app.get("/volunteer/top", async (req, res) => {
-      const result = await volunteerCollection
-        .find()
-        .sort({ deadline: 1 })
-        .limit(6)
-        .toArray();
+      const result = await volunteerCollection.find().sort({ deadline: 1 }).limit(6).toArray();
       res.send(result);
     });
 
@@ -91,6 +93,15 @@ async function run() {
       const id = req.params.id;
       const post = await volunteerCollection.findOne({ _id: new ObjectId(id) });
       res.send(post);
+    });
+
+    app.patch("/volunteer/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await volunteerCollection.updateOne(
+        { _id: new ObjectId(id), volunteers: { $gt: 0 } },
+        { $inc: { volunteers: -1 } }
+      );
+      res.send(result);
     });
 
     app.put("/volunteer/:id", async (req, res) => {
@@ -102,39 +113,16 @@ async function run() {
       );
       res.send(result);
     });
-    app.patch("/volunteer/:id", async (req, res) => {
-      const id = req.params.id;
-
-      const result = await volunteerCollection.updateOne(
-        { _id: new ObjectId(id), volunteers: { $gt: 0 } },
-        { $inc: { volunteers: -1 } }
-      );
-      res.send(result);
-    });
 
     app.delete("/volunteer/:id", async (req, res) => {
       const id = req.params.id;
-      const result = await volunteerCollection.deleteOne({
-        _id: new ObjectId(id),
-      });
+      const result = await volunteerCollection.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
     });
 
-    app.patch("/volunteer-decrement/:id", async (req, res) => {
-      const id = req.params.id;
-      const result = await volunteerCollection.updateOne(
-        { _id: new ObjectId(id), volunteers: { $gt: 0 } },
-        { $inc: { volunteers: -1 } }
-      );
-      res.send(result);
-    });
-
-    app.get("/volunteer-requests", logger, verifytoken, async (req, res) => {
+    // Volunteer Request APIs
+    app.get("/volunteer-requests", verifyFirebaseToken, async (req, res) => {
       const { userEmail, postId } = req.query;
-      // console.log('indide application api', req.cookies)
-      // if(email !== req.decoded.email){
-      //   return res.status(403).send({message: 'forbidden access'})
-      // }
       const query = {};
       if (userEmail) query.userEmail = userEmail;
       if (postId) query.postId = postId;
@@ -142,35 +130,22 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/volunteer-requests", async (req, res) => {
+    app.post("/volunteer-requests", verifyFirebaseToken, async (req, res) => {
       const request = req.body;
       const result = await requestCollection.insertOne(request);
       res.send(result);
     });
+
     app.delete("/volunteer-requests/:id", async (req, res) => {
       const id = req.params.id;
-
-      try {
-        const request = await requestCollection.findOne({
-          _id: new ObjectId(id),
-        });
-
-        if (!request) {
-          return res.status(404).send({ message: "Request not found" });
-        }
-
-        await requestCollection.deleteOne({ _id: new ObjectId(id) });
-
-        await volunteerCollection.updateOne(
-          { _id: new ObjectId(request.postId) },
-          { $inc: { volunteers: 1 } }
-        );
-
-        res.send({ message: "Request cancelled" });
-      } catch (error) {
-        console.error("Error deleting request:", error.message);
-        res.status(500).send({ message: "Internal Server Error" });
-      }
+      const request = await requestCollection.findOne({ _id: new ObjectId(id) });
+      if (!request) return res.status(404).send({ message: "Request not found" });
+      await requestCollection.deleteOne({ _id: new ObjectId(id) });
+      await volunteerCollection.updateOne(
+        { _id: new ObjectId(request.postId) },
+        { $inc: { volunteers: 1 } }
+      );
+      res.send({ message: "Request cancelled" });
     });
 
     // app.delete("/volunteer-requests/:id", async (req, res) => {
