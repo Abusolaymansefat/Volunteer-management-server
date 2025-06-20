@@ -1,12 +1,17 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
+const cookieParser = require('cookie-parser')
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({
+  origin:['http://localhost:5173'],
+  credentials: true
+}));
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.sq4up6y.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -26,6 +31,21 @@ async function run() {
     const db = client.db("volunteerDB");
     const volunteerCollection = db.collection("volunteer");
     const requestCollection = db.collection("volunteerRequests");
+
+    //jwt tokan related api
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+
+      const token = jwt.sign(user, process.env.JWT_ACCESS_SECRET, {
+        expiresIn: "1d",
+      });
+      res.cookie('tokan', token, {
+        httpOnly: true,
+        secure: false
+      })
+
+      res.send({ success: true });
+    });
 
     app.get("/volunteer", async (req, res) => {
       const result = await volunteerCollection.find().toArray();
@@ -98,6 +118,7 @@ async function run() {
 
     app.get("/volunteer-requests", async (req, res) => {
       const { userEmail, postId } = req.query;
+      console.log('indide application api', req.cookies)
       const query = {};
       if (userEmail) query.userEmail = userEmail;
       if (postId) query.postId = postId;
@@ -113,19 +134,18 @@ async function run() {
 
     app.delete("/volunteer-requests/:id", async (req, res) => {
       const id = req.params.id;
-    const request = await requestCollection.findOne({ _id: new ObjectId(id) });
+      const request = await requestCollection.findOne({
+        _id: new ObjectId(id),
+      });
 
       await requestCollection.deleteOne({ _id: new ObjectId(id) });
 
-      
-       await volunteerCollection.updateOne(
-      { _id: new ObjectId(request.postId) },
-      { $inc: { volunteers: 1 } }
-    );
-    res.send({ message: "Request cancelled" })
+      await volunteerCollection.updateOne(
+        { _id: new ObjectId(request.postId) },
+        { $inc: { volunteers: 1 } }
+      );
+      res.send({ message: "Request cancelled" });
     });
-
-
 
     await client.db("admin").command({ ping: 1 });
     console.log(" Connected to MongoDB");
