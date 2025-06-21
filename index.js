@@ -10,7 +10,7 @@ const port = process.env.PORT || 3000;
 
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: ["https://volunteer-management-56adc.web.app"],
     credentials: true,
   })
 );
@@ -38,11 +38,6 @@ const verifytoken = (req, res, next) => {
   next();
 };
 
-const verifyFirebaseToken = (req, res, next)=> {
-  const token = req.header.accessToken;
-  console.log('fb token', token)
-}
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.sq4up6y.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 const client = new MongoClient(uri, {
@@ -55,7 +50,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
 
     const db = client.db("volunteerDB");
     const volunteerCollection = db.collection("volunteer");
@@ -70,12 +65,12 @@ async function run() {
       });
       res.cookie("token", token, {
         httpOnly: true,
-        secure: false,
-        sameSite: "strict",
+        secure: true,
+        sameSite: "none",
         maxAge: 3 * 24 * 60 * 60 * 1000,
       });
 
-      res.send({ success: true });
+      res.send({ success: true, token });
     });
 
     // Volunteer APIs
@@ -85,7 +80,11 @@ async function run() {
     });
 
     app.get("/volunteer/top", async (req, res) => {
-      const result = await volunteerCollection.find().sort({ deadline: 1 }).limit(6).toArray();
+      const result = await volunteerCollection
+        .find()
+        .sort({ deadline: 1 })
+        .limit(6)
+        .toArray();
       res.send(result);
     });
 
@@ -93,6 +92,13 @@ async function run() {
       const id = req.params.id;
       const post = await volunteerCollection.findOne({ _id: new ObjectId(id) });
       res.send(post);
+    });
+
+    // Add Volunteer Post
+    app.post("/volunteer", logger, verifytoken, async (req, res) => {
+      const newPost = req.body;
+      const result = await volunteerCollection.insertOne(newPost);
+      res.send(result);
     });
 
     app.patch("/volunteer/:id", async (req, res) => {
@@ -116,12 +122,14 @@ async function run() {
 
     app.delete("/volunteer/:id", async (req, res) => {
       const id = req.params.id;
-      const result = await volunteerCollection.deleteOne({ _id: new ObjectId(id) });
+      const result = await volunteerCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
       res.send(result);
     });
 
     // Volunteer Request APIs
-    app.get("/volunteer-requests", verifyFirebaseToken, async (req, res) => {
+    app.get("/volunteer-requests", logger, verifytoken, async (req, res) => {
       const { userEmail, postId } = req.query;
       const query = {};
       if (userEmail) query.userEmail = userEmail;
@@ -130,21 +138,18 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/volunteer-requests", verifyFirebaseToken, async (req, res) => {
+    app.post("/volunteer-requests", logger, verifytoken, async (req, res) => {
       const request = req.body;
       const result = await requestCollection.insertOne(request);
       res.send(result);
     });
 
-    app.delete("/volunteer-requests/:id", async (req, res) => {
+    app.delete("/volunteer-requests/:id", verifytoken, async (req, res) => {
       const id = req.params.id;
-      const request = await requestCollection.findOne({ _id: new ObjectId(id) });
-      if (!request) return res.status(404).send({ message: "Request not found" });
+
       await requestCollection.deleteOne({ _id: new ObjectId(id) });
-      await volunteerCollection.updateOne(
-        { _id: new ObjectId(request.postId) },
-        { $inc: { volunteers: 1 } }
-      );
+
+
       res.send({ message: "Request cancelled" });
     });
 
@@ -163,8 +168,8 @@ async function run() {
     //   res.send({ message: "Request cancelled" });
     // });
 
-    await client.db("admin").command({ ping: 1 });
-    console.log(" Connected to MongoDB");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(" Connected to MongoDB");
   } finally {
     // await client.close(); // Keep open for server
   }
