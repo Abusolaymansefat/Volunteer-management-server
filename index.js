@@ -10,7 +10,7 @@ const port = process.env.PORT || 3000;
 
 app.use(
   cors({
-    origin: ["https://volunteer-management-56adc.web.app"],
+    origin: ["http://localhost:5173"],
     credentials: true,
   })
 );
@@ -73,7 +73,7 @@ async function run() {
       res.send({ success: true, token });
     });
 
-    // Volunteer APIs
+   
     app.get("/volunteer", async (req, res) => {
       const result = await volunteerCollection.find().toArray();
       res.send(result);
@@ -94,8 +94,8 @@ async function run() {
       res.send(post);
     });
 
-    // Add Volunteer Post
-    app.post("/volunteer", logger, verifytoken, async (req, res) => {
+   
+    app.post("/volunteer", async (req, res) => {
       const newPost = req.body;
       const result = await volunteerCollection.insertOne(newPost);
       res.send(result);
@@ -128,8 +128,7 @@ async function run() {
       res.send(result);
     });
 
-    // Volunteer Request APIs
-    app.get("/volunteer-requests", logger, verifytoken, async (req, res) => {
+    app.get("/volunteer-requests", async (req, res) => {
       const { userEmail, postId } = req.query;
       const query = {};
       if (userEmail) query.userEmail = userEmail;
@@ -138,13 +137,13 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/volunteer-requests", logger, verifytoken, async (req, res) => {
+    app.post("/volunteer-requests", async (req, res) => {
       const request = req.body;
       const result = await requestCollection.insertOne(request);
       res.send(result);
     });
 
-    app.delete("/volunteer-requests/:id", verifytoken, async (req, res) => {
+    app.delete("/volunteer-requests/:id",  async (req, res) => {
       const id = req.params.id;
 
       await requestCollection.deleteOne({ _id: new ObjectId(id) });
@@ -153,23 +152,10 @@ async function run() {
       res.send({ message: "Request cancelled" });
     });
 
-    // app.delete("/volunteer-requests/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const request = await requestCollection.findOne({
-    //     _id: new ObjectId(id),
-    //   });
+    
 
-    //   await requestCollection.deleteOne({ _id: new ObjectId(id) });
-
-    //   await volunteerCollection.updateOne(
-    //     { _id: new ObjectId(request.postId) },
-    //     { $inc: { volunteers: 1 } }
-    //   );
-    //   res.send({ message: "Request cancelled" });
-    // });
-
-    // await client.db("admin").command({ ping: 1 });
-    // console.log(" Connected to MongoDB");
+    await client.db("admin").command({ ping: 1 });
+    console.log(" Connected to MongoDB");
   } finally {
     // await client.close(); // Keep open for server
   }
