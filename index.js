@@ -128,7 +128,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/volunteer-requests", verifytoken, logger, async (req, res) => {
+    app.get("/volunteer-requests", async (req, res) => {
       const { userEmail, postId } = req.query;
       const query = {};
       if (userEmail) query.userEmail = userEmail;
@@ -137,7 +137,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/volunteer-requests", verifytoken, logger, async (req, res) => {
+    app.post("/volunteer-requests",  async (req, res) => {
       const request = req.body;
       const result = await requestCollection.insertOne(request);
       res.send(result);
