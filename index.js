@@ -10,7 +10,7 @@ const port = process.env.PORT || 3000;
 
 app.use(
   cors({
-    origin: ["https://volunteer-management-56adc.web.app"],
+    origin: ["http://localhost:5173"],
     credentials: true,
   })
 );
