@@ -55,6 +55,7 @@ async function run() {
     const db = client.db("volunteerDB");
     const volunteerCollection = db.collection("volunteer");
     const requestCollection = db.collection("volunteerRequests");
+    const usersCollection = db.collection("users");
 
     //jwt tokan related api
     app.post("/jwt", (req, res) => {
@@ -74,6 +75,32 @@ async function run() {
     });
 
    
+    app.get("/users", async (req, res) => {
+  const users = await usersCollection.find().toArray();
+  console.log("Users fetched from DB:", users);
+  res.send(users);
+});
+
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const existing = await usersCollection.findOne({ email: user.email });
+      if (existing) {
+        return res.send({ message: "User already exists" });
+      }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
+
+    app.patch("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const { role } = req.body;
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { role } }
+      );
+      res.send(result);
+    });
+
     app.get("/volunteer", async (req, res) => {
       const result = await volunteerCollection.find().toArray();
       res.send(result);
@@ -152,7 +179,6 @@ async function run() {
       res.send({ message: "Request cancelled" });
     });
 
-    
 
     await client.db("admin").command({ ping: 1 });
     console.log(" Connected to MongoDB");
