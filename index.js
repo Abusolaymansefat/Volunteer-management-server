@@ -56,6 +56,7 @@ async function run() {
     const volunteerCollection = db.collection("volunteer");
     const requestCollection = db.collection("volunteerRequests");
     const usersCollection = db.collection("users");
+    const reviewCollection = db.collection("reviews");
 
     //jwt tokan related api
     app.post("/jwt", (req, res) => {
@@ -121,6 +122,19 @@ async function run() {
       res.send(post);
     });
 
+
+    app.get("/volunteer/search", async (req, res) => {
+  const { query, page = 1, limit = 5 } = req.query;
+  const filter = query ? { title: { $regex: query, $options: "i" } } : {};
+  const result = await volunteerCollection
+    .find(filter)
+    .skip((page - 1) * limit)
+    .limit(parseInt(limit))
+    .toArray();
+  const total = await volunteerCollection.countDocuments(filter);
+  res.send({ data: result, total });
+});
+
    
     app.post("/volunteer", async (req, res) => {
       const newPost = req.body;
@@ -178,6 +192,28 @@ async function run() {
 
       res.send({ message: "Request cancelled" });
     });
+    // Add review
+app.post("/reviews", async (req, res) => {
+  const { postId, userEmail, rating, comment } = req.body;
+  if (!postId || !userEmail || !rating) {
+    return res.status(400).send({ message: "Missing required fields" });
+  }
+  const result = await reviewCollection.insertOne({
+    postId,
+    userEmail,
+    rating,
+    comment,
+    createdAt: new Date(),
+  });
+  res.send(result);
+});
+
+// Get reviews by postId
+app.get("/reviews/:postId", async (req, res) => {
+  const postId = req.params.postId;
+  const reviews = await reviewCollection.find({ postId }).toArray();
+  res.send(reviews);
+});
 
 
     await client.db("admin").command({ ping: 1 });
